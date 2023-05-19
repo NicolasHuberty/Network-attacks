@@ -44,6 +44,7 @@ class TopoSecu(Topo):
         self.addLink(dnsServer, s2)
         self.addLink(ntpServer, s2)
         self.addLink(ftpServer, s2)
+        
 
 
 topos = {
@@ -76,49 +77,6 @@ def stop_services(net):
     # ftpHost server
     info(net['ftpHost'].cmd("killall vsftpd"))
     
-def configure_firewall(net):
-    r1 = net['r1']
-    r2 = net['r2']
-
-    dmz_servers =[net['http'],net['ntp'],net['ftpHost'],net['dns']]
-
-    # Flush existing rules
-    r1.cmd('nft flush ruleset')
-    r2.cmd('nft flush ruleset')
-
-    # Create tables and chains
-    r1.cmd('nft add table inet filter')
-    r1.cmd("nft add chain inet filter input '{ type filter hook input priority 0; }'")
-    r1.cmd("nft add chain inet filter forward '{ type filter hook forward priority 0; }'")
-
-    r2.cmd('nft add table inet filter')
-    r2.cmd("nft add chain inet filter input '{ type filter hook input priority 0; }'")
-    r2.cmd("nft add chain inet filter forward '{ type filter hook forward priority 0; }'")
-
-    # Workstation policies
-    r1.cmd('nft add rule inet filter forward ip saddr 10.1.0.0/24 ct state new accept')
-    r1.cmd('nft add rule inet filter forward ip saddr 10.1.0.0/24 icmp type echo-request accept')
-    
-    # DMZ server policies
-    for dmz in dmz_servers:
-        dmz.cmd('nft add table inet filter')
-        dmz.cmd("nft add chain inet filter input '{ type filter hook input priority 0; }'")
-        #dmz.cmd('nft add rule inet filter input ip saddr 10.12.0.0/24 drop')
-        dmz.cmd("nft add rule inet filter forward ip saddr 10.12.0.0/24 icmp type echo-request drop")
-
-    
-    # R1/R2 rules for DMZ  
-    r1.cmd("nft add rule inet filter forward ip saddr 10.12.0.0/24 icmp type echo-request drop")
-    r2.cmd("nft add rule inet filter forward ip saddr 10.12.0.0/24 icmp type echo-request drop")
-    r1.cmd("nft add rule inet filter forward ip saddr 10.12.0.0/24 ct state new drop")
-    r2.cmd("nft add rule inet filter forward ip saddr 10.12.0.0/24 ct state new drop")
-    # Internet policies
-    r2.cmd('nft add rule inet filter forward ip saddr 10.2.0.2 ip daddr 10.12.0.0/24 ct state new accept')
-    r2.cmd('nft add rule inet filter forward ip saddr 10.2.0.2 ip daddr 10.12.0.0/24 icmp type echo-request accept')
-    r2.cmd('nft add rule inet filter forward ip saddr 10.2.0.2 ip daddr 10.1.0.0/24 ct state new drop')
-    r2.cmd('nft add rule inet filter forward ip saddr 10.2.0.2 ip daddr 10.1.0.0/24 icmp type echo-request drop')
-
-
 def run():
     topo = TopoSecu()
     net = Mininet(topo=topo)
@@ -127,9 +85,8 @@ def run():
     stop_services(net)
     time.sleep(1)
     start_services(net)
-
     net.start()
-    #configure_firewall(net)
+    
     CLI(net)
     stop_services(net)
     net.stop()
@@ -142,7 +99,6 @@ def ping_all():
     stop_services(net)
     time.sleep(1)
     start_services(net)
-
     net.start()
     net.pingAll()
     stop_services(net)

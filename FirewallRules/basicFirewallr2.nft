@@ -1,0 +1,13 @@
+#!/usr/local/sbin/nft -f
+flush ruleset
+table inet filter {
+    chain forward {
+        type filter hook forward priority 0;
+        ip saddr 10.12.0.0/24 icmp type echo-request drop
+        ip saddr 10.12.0.0/24 ct state new drop
+        ip saddr 10.2.0.2 ip daddr 10.12.0.0/24 ct state new accept
+        ip saddr 10.2.0.2 ip daddr 10.12.0.0/24 icmp type echo-request accept
+        ip saddr 10.2.0.2 ip daddr 10.1.0.0/24 ct state new drop
+        ip saddr 10.2.0.2 ip daddr 10.1.0.0/24 icmp type echo-request drop
+    }
+}
